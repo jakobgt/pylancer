@@ -5,6 +5,9 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from sys import stdout
 
 # Client is the component connecting to the different web servers.
+from twisted.internet.protocol import connectionDone
+
+
 class Client(protocol.Protocol):
     def __init__(self):
         self.server_obj = None
@@ -13,8 +16,7 @@ class Client(protocol.Protocol):
         self.transport.write(data)
 
     def dataReceived(self, data):
-        pass
-        # self.server_obj.sendData(data)
+        self.server_obj.sendData(data)
 
 class ClientFactory(protocol.Factory):
     def buildProtocol(self, addr):
@@ -24,6 +26,7 @@ class ClientFactory(protocol.Factory):
 class Server(protocol.Protocol):
     def __init__(self):
         self.client_object = None
+        self.buffer = []
 
     def connectionMade(self):
         # Need to create a connection to a backend server...
@@ -33,18 +36,30 @@ class Server(protocol.Protocol):
 
     def dataReceived(self, data):
         stdout.write("Received data\n")
-        self.client_object.sendData(data)
+        if self.client_object is None:
+            stdout.write("client_object is none.\n")
+            self.buffer.append(data)
+        else:
+            stdout.write("client_object is not none.\n")
+            self.client_object.sendData(data)
 
     def connectionMadeForClient(self, client_protocol):
         stdout.write("Forwarding connection established\n")
         self.client_object = client_protocol
         client_protocol.server_obj = self
+        if self.buffer:
+            stdout.write("Buffer not empty: %d" % len(self.buffer))
+            for data in self.buffer:
+                self.client_object.sendData(data)
+            self.buffer = []
+
 
     def sendData(self, data):
         self.transport.write(data)
 
-    # def connectionLost(self, reason=connectionDone):
-    #     self.client_connection.transport.loseConnection()
+    def connectionLost(self, reason=connectionDone):
+        stdout.write("Closing connection for the client side.")
+        self.client_object.transport.loseConnection()
 
 
 class ServerFactory(protocol.Factory):
