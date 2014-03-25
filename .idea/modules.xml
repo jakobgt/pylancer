@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/pylancer.iml" filepath="$PROJECT_DIR$/.idea/pylancer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../uber-code/.idea/uber-code.iml" filepath="$PROJECT_DIR$/../uber-code/.idea/uber-code.iml" />
     </modules>
   </component>
 </project>

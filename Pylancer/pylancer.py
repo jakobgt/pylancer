@@ -8,6 +8,10 @@ from twisted.internet import protocol, reactor
 # Client is the component connecting to the different web servers.
 from twisted.internet.protocol import connectionDone
 
+def debug(msg):
+    pass
+    #stdout.write("Could connect to the peer")
+
 class Proxy(protocol.Protocol):
     peer = None
 
@@ -19,7 +23,7 @@ class Proxy(protocol.Protocol):
             self.peer.transport.loseConnection()
             self.peer = None
         else:
-            stdout.write("Could connect to the peer")
+            debug("Could connect to the peer")
 
     def dataReceived(self, data):
         self.peer.transport.write(data)
@@ -27,7 +31,7 @@ class Proxy(protocol.Protocol):
 
 class Client(Proxy):
     def connectionMade(self):
-        stdout.write("Connection to localhost:8000 successfull.\n")
+        debug("Connection to localhost:8000 successfull.\n")
         self.peer.setPeer(self)
         self.peer.transport.resumeProducing()
 
@@ -43,7 +47,7 @@ class ClientFactory(protocol.ClientFactory):
         return client
 
     def clientConnectionFailed(self, connector, reason):
-        stdout.write("Connection to localhost:8000 failed.\n")
+        debug("Connection to localhost:8000 failed.\n")
         self.server.transport.loseConnection()
 
 # The server is seen from our application side, so this one is the entity users connect to.
@@ -62,7 +66,7 @@ class Server(Proxy):
 
 
         # Need to create a connection to a backend server...
-        stdout.write("Connecting to client...\n")
+        debug("Connecting to client...\n")
 
         client = ClientFactory()
         client.setServer(self)
