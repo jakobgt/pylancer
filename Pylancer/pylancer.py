@@ -1,4 +1,4 @@
-#!/opt/local/bin/python
+#!/usr/bin/python
 
 from twisted.internet import protocol, reactor
 from twisted.internet.endpoints import TCP4ClientEndpoint
