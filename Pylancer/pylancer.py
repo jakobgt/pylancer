@@ -7,59 +7,59 @@ from sys import stdout
 # Client is the component connecting to the different web servers.
 from twisted.internet.protocol import connectionDone
 
+class Proxy(protocol.Protocol):
+    peer = None
 
-class Client(protocol.Protocol):
-    def __init__(self):
-        self.server_obj = None
-
-    def sendData(self, data):
-        self.transport.write(data)
-
-    def dataReceived(self, data):
-        self.server_obj.sendData(data)
-
-class ClientFactory(protocol.Factory):
-    def buildProtocol(self, addr):
-        return Client()
-
-# The server is seen from our application side, so this one is the entity users connect to.
-class Server(protocol.Protocol):
-    def __init__(self):
-        self.client_object = None
-        self.buffer = []
-
-    def connectionMade(self):
-        # Need to create a connection to a backend server...
-        point = TCP4ClientEndpoint(reactor, "localhost", 8000)
-        client_conn_deferred = point.connect(ClientFactory())
-        client_conn_deferred.addCallback(self.connectionMadeForClient)
-
-    def dataReceived(self, data):
-        stdout.write("Received data\n")
-        if self.client_object is None:
-            stdout.write("client_object is none.\n")
-            self.buffer.append(data)
-        else:
-            stdout.write("client_object is not none.\n")
-            self.client_object.sendData(data)
-
-    def connectionMadeForClient(self, client_protocol):
-        stdout.write("Forwarding connection established\n")
-        self.client_object = client_protocol
-        client_protocol.server_obj = self
-        if self.buffer:
-            stdout.write("Buffer not empty: %d" % len(self.buffer))
-            for data in self.buffer:
-                self.client_object.sendData(data)
-            self.buffer = []
-
-
-    def sendData(self, data):
-        self.transport.write(data)
+    def setPeer(self, peer):
+        self.peer = peer
 
     def connectionLost(self, reason=connectionDone):
-        stdout.write("Closing connection for the client side.")
-        self.client_object.transport.loseConnection()
+        if self.peer:
+            self.peer.transport.loseConnection()
+            self.peer = None
+        else:
+            stdout.write("Could connect to the peer")
+
+    def dataReceived(self, data):
+        self.peer.transport.write(data)
+
+
+class Client(Proxy):
+    def connectionMade(self):
+        stdout.write("Connection to localhost:8000 successfull.\n")
+        self.peer.setPeer(self)
+        self.peer.transport.resumeProducing()
+
+
+class ClientFactory(protocol.ClientFactory):
+    server = None
+    def setServer(self, server):
+        self.server = server
+
+    def buildProtocol(self, addr):
+        client = Client()
+        client.setPeer(self.server)
+        return client
+
+    def clientConnectionFailed(self, connector, reason):
+        stdout.write("Connection to localhost:8000 failed.\n")
+        self.server.transport.loseConnection()
+
+# The server is seen from our application side, so this one is the entity users connect to.
+class Server(Proxy):
+    # User <-> Server communication
+    def connectionMade(self):
+        # We pause the incoming traffic, until the connection to the backend server is up.
+        self.transport.pauseProducing()
+
+
+        # Need to create a connection to a backend server...
+        stdout.write("Connecting to client...\n")
+
+        client = ClientFactory()
+        client.setServer(self)
+
+        reactor.connectTCP("localhost", 8080, client)
 
 
 class ServerFactory(protocol.Factory):
