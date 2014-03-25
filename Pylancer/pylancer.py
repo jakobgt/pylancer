@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
+from sys import stdout, argv
+from random import randint
+
 from twisted.internet import protocol, reactor
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from sys import stdout
 
 # Client is the component connecting to the different web servers.
 from twisted.internet.protocol import connectionDone
@@ -47,6 +48,13 @@ class ClientFactory(protocol.ClientFactory):
 
 # The server is seen from our application side, so this one is the entity users connect to.
 class Server(Proxy):
+    port = 1234
+    host = "localhost"
+
+    def __init__(self, port, host):
+        self.port = port
+        self.host = host
+
     # User <-> Server communication
     def connectionMade(self):
         # We pause the incoming traffic, until the connection to the backend server is up.
@@ -59,16 +67,36 @@ class Server(Proxy):
         client = ClientFactory()
         client.setServer(self)
 
-        reactor.connectTCP("localhost", 8080, client)
+        reactor.connectTCP(self.host, self.port, client)
 
 
 class ServerFactory(protocol.Factory):
+    port = 1234
+    hosts = []
+
+    def __init__(self, port, hosts):
+        self.port = port
+        self.hosts = hosts
+
     def buildProtocol(self, addr):
-        return Server()
+        host = self.hosts[randint(0, len(self.hosts) - 1)]
+        return Server(self.port, host)
 
 
 def main():
-    reactor.listenTCP(1234, ServerFactory())
+    if len(argv) > 1:
+        port = int(argv[1])
+    else:
+        print "No port given, use pylancer [port]"
+        return
+    if len(argv) > 2:
+        hosts = argv[2:]
+    else:
+        print "No forwarding hosts given..."
+        return
+
+    print "Listening on port {0} and forwarding to {0}".format(port)
+    reactor.listenTCP(port, ServerFactory(port, hosts))
     reactor.run()
 
 if __name__ == "__main__":
